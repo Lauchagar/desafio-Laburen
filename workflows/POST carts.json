@@ -1,0 +1,575 @@
+{
+  "name": "POST carts",
+  "nodes": [
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"message\": \"Carrito creado y actualizado correctamente.\"} ",
+        "options": {
+          "responseCode": 201
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2320,
+        -112
+      ],
+      "id": "aa687ecd-8dbd-45a1-8f88-b163208b8044",
+      "name": "201"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"error\": \"Producto no encontrado para el id {{ $('restar stock por cada producto').item.json.product_id }}\"\n}",
+        "options": {
+          "responseCode": 404
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1296,
+        96
+      ],
+      "id": "c9396217-8c5d-42eb-a3ee-6e94bad2480d",
+      "name": "404"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "carts",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -32,
+        0
+      ],
+      "id": "9741b5a1-bd1e-4b5b-8632-e1413f4e47fe",
+      "name": "Webhook",
+      "webhookId": "605207f2-a1e6-46a3-b14e-13f60a4a4582"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "items",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        448,
+        0
+      ],
+      "id": "a78c7592-a0d2-440a-95cb-535ba3ff061e",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "07300173-925a-480a-a4f4-46758b318fd9",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "0",
+              "operator": {
+                "type": "number",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        112
+      ],
+      "id": "267dd16b-c1f1-491d-9408-0902a7041794",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE products\nSET cantidad_disponible = cantidad_disponible - {{ $json.qty }}\nWHERE id = {{ $json.product_id }} \n  AND cantidad_disponible >= {{ $json.qty }}\nRETURNING id;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        784,
+        112
+      ],
+      "id": "01627757-3417-4778-8039-f925b51cf981",
+      "name": "Update stock",
+      "credentials": {
+        "postgres": {
+          "id": "siU1mYKXxXHAYkHK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7e95000b-2292-42af-b828-7b9f4a31519e",
+              "name": "items",
+              "value": "={{ $('Webhook').item.json.body.items }}",
+              "type": "array"
+            },
+            {
+              "id": "1a03c909-0aec-4cbb-acf8-faa6ba691165",
+              "name": "user_id",
+              "value": "={{ $('Webhook').item.json.body.user_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        304,
+        0
+      ],
+      "id": "6517e9e3-bf30-4d54-b7db-ba3a6d479742",
+      "name": "items"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        608,
+        0
+      ],
+      "id": "7f13f02b-117a-45b3-8901-9e9f3c541934",
+      "name": "restar stock por cada producto"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "items",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1456,
+        -128
+      ],
+      "id": "95e7ee17-9073-4dc9-a869-361a52f707b1",
+      "name": "Split Out1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7e95000b-2292-42af-b828-7b9f4a31519e",
+              "name": "items",
+              "value": "={{ $('Webhook').item.json.body.items }}",
+              "type": "array"
+            },
+            {
+              "id": "103f5343-ebeb-4553-b3ef-38a1048ad267",
+              "name": "user_id",
+              "value": "={{ $('items').item.json.user_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1280,
+        -128
+      ],
+      "id": "2c1f19be-c7a0-4e1f-8cc7-8398b49dc79c",
+      "name": "items1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "COMMIT;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2160,
+        -112
+      ],
+      "id": "4eac0391-2cb4-4ee5-805d-f664d7c0b696",
+      "name": "COMMIT",
+      "credentials": {
+        "postgres": {
+          "id": "siU1mYKXxXHAYkHK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "ROLLBACK;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1152,
+        96
+      ],
+      "id": "5e31fbd9-877a-437b-9c3d-fd6e3d3e63a3",
+      "name": "ROLLBACK",
+      "credentials": {
+        "postgres": {
+          "id": "siU1mYKXxXHAYkHK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH existing_cart AS (\n    SELECT id FROM carts WHERE user_id = '{{ $('items').item.json.user_id }}' AND estado = 'activo'\n), \ninserted_cart AS (\n    INSERT INTO carts (user_id) \n    SELECT '{{ $('items').item.json.user_id }}' \n    WHERE NOT EXISTS (SELECT 1 FROM existing_cart)\n    RETURNING id\n)\n\nSELECT id FROM existing_cart\nUNION ALL\nSELECT id FROM inserted_cart;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1104,
+        -128
+      ],
+      "id": "1f6b577e-fed1-472b-a711-95916a0351e7",
+      "name": "CREAR CART",
+      "credentials": {
+        "postgres": {
+          "id": "siU1mYKXxXHAYkHK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        912,
+        -128
+      ],
+      "id": "2e961bac-3652-4a71-87db-737a4921bcc5",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1632,
+        -128
+      ],
+      "id": "ed88d347-4a91-4fbc-9ca6-8d7664a318cb",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1984,
+        -112
+      ],
+      "id": "2b74e887-df9f-4e19-8be3-17efe1049a7e",
+      "name": "Aggregate1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "BEGIN;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        144,
+        0
+      ],
+      "id": "6d6d853e-91e5-4b1a-b31a-44563de3a40b",
+      "name": "BEGIN",
+      "credentials": {
+        "postgres": {
+          "id": "siU1mYKXxXHAYkHK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO cart_items (cart_id, product_id, qty)\nVALUES ({{ $(\"CREAR CART\").item.json.id }}, {{ $json.product_id }}, {{ $json.qty }})\nON CONFLICT (cart_id, product_id) \nDO UPDATE SET qty = cart_items.qty + EXCLUDED.qty;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1808,
+        -32
+      ],
+      "id": "d67159a2-6cb5-4435-ad97-dda854369347",
+      "name": "Agregar items al carrito",
+      "credentials": {
+        "postgres": {
+          "id": "siU1mYKXxXHAYkHK",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "BEGIN",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "restar stock por cada producto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update stock": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "items": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "ROLLBACK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "restar stock por cada producto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "restar stock por cada producto": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update stock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "items1": {
+      "main": [
+        [
+          {
+            "node": "Split Out1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "COMMIT": {
+      "main": [
+        [
+          {
+            "node": "201",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ROLLBACK": {
+      "main": [
+        [
+          {
+            "node": "404",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CREAR CART": {
+      "main": [
+        [
+          {
+            "node": "items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "CREAR CART",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Aggregate1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Agregar items al carrito",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate1": {
+      "main": [
+        [
+          {
+            "node": "COMMIT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BEGIN": {
+      "main": [
+        [
+          {
+            "node": "items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agregar items al carrito": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "fb85cd97-fdb1-4c1e-aa73-5aaa3a3fd88a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7a551d748fa207e13e0ae1da2c45d43afc08dab8d482a7b98f240f900d2956d7"
+  },
+  "id": "jj2LHKQ9wluvse99",
+  "tags": []
+}

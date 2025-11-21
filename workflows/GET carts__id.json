@@ -1,0 +1,206 @@
+{
+  "name": "GET carts/:id",
+  "nodes": [
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        832,
+        128
+      ],
+      "id": "a910e3af-ca7c-46e0-a491-0a9054082186",
+      "name": "200"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"message\": \"Carrito no encontrado para el id {{ $('Edit Fields').item.json.user_id }}\"\n} ",
+        "options": {
+          "responseCode": 404
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        832,
+        -64
+      ],
+      "id": "9e4753d7-f975-4e5b-a86c-87652f5243b8",
+      "name": "404"
+    },
+    {
+      "parameters": {
+        "path": "cart/:user_id",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "ed5e2b5c-1296-46c3-a60c-1e8ea84806ee",
+      "name": "Webhook",
+      "webhookId": "0a0aa523-8d83-445a-b532-08f698e12bae"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $json.query }}",
+        "options": {
+          "queryReplacement": "={{ $json.user_id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        368,
+        0
+      ],
+      "id": "c289ffe7-351f-4000-8e78-8e8084ca4cb6",
+      "name": "Execute a SQL query",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "siU1mYKXxXHAYkHK",
+          "name": "Postgres account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ac993643-f1dc-43dd-8f94-a15d28a9f8ac",
+              "name": "user_id",
+              "value": "={{ $json.params.user_id }}",
+              "type": "string"
+            },
+            {
+              "id": "d5eed868-35b2-4c8c-a33a-53ea78ec95a7",
+              "name": "query",
+              "value": "=SELECT \n    ci.cart_id,\n    ci.product_id,\n    ci.qty,\n    CONCAT(p.tipo_prenda, ' ', p.color, ' ', p.talla) as nombre_producto,\n    p.categoria,\n    p.tipo_prenda,\n    p.descripcion,\n    p.precio_50_u as precio_50_unitario\nFROM cart_items ci\nJOIN carts c ON ci.cart_id = c.id\nJOIN products p ON ci.product_id = p.id\nWHERE c.user_id = ($1) \n  AND c.estado = 'activo';",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        192,
+        0
+      ],
+      "id": "73e5afd8-5e47-44c7-b654-3807d96afa89",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f98b8e86-35e6-40bf-a840-72aecb0ce851",
+              "leftValue": "={{ $json.product_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "number",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        560,
+        0
+      ],
+      "id": "d4c2f95a-d702-41c1-b0d7-521f4ffa0f56",
+      "name": "If"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "404",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "200",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "7e403819-5461-4d69-b2b4-e5821af89149",
+  "meta": {
+    "instanceId": "7a551d748fa207e13e0ae1da2c45d43afc08dab8d482a7b98f240f900d2956d7"
+  },
+  "id": "sGpWxaAzuzy98Gjl",
+  "tags": []
+}

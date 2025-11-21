@@ -1,0 +1,289 @@
+{
+  "name": "GET products/:id",
+  "nodes": [
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        880,
+        128
+      ],
+      "id": "7fe55667-4bed-45d4-814c-0380f83f57b4",
+      "name": "200"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"error\": \"Not Found\",\n  \"message\": \"El recurso solicitado no pudo ser encontrado.\",\n  \"details\": \"No se encontró el producto con el ID: {{ $('Edit Fields').item.json.id }}\"\n}",
+        "options": {
+          "responseCode": 404
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        880,
+        0
+      ],
+      "id": "3f0d5e90-c734-4cc3-9762-7a7c28e834bc",
+      "name": "404"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \n  \"error\": \"Internal Server Error\", \n  \"message\": \"{{$json.message}}\",\n  \"details\": \"{{ $json.error.description }}\"\n}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        880,
+        -128
+      ],
+      "id": "f8ec0a17-51a7-499f-9bb5-1256bedfca87",
+      "name": "500"
+    },
+    {
+      "parameters": {
+        "path": "products/:id",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "b40f35f6-7435-4f37-898a-732366dabf14",
+      "name": "Webhook",
+      "webhookId": "c7f2d867-0fc9-47d3-9f32-ea929f578a53"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $json.query }}",
+        "options": {
+          "queryReplacement": "={{ $json.id }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        384,
+        0
+      ],
+      "id": "f49027e0-d422-4b0a-930a-c05404cf9ef6",
+      "name": "Execute a SQL query",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "siU1mYKXxXHAYkHK",
+          "name": "Postgres account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ac993643-f1dc-43dd-8f94-a15d28a9f8ac",
+              "name": "id",
+              "value": "={{ $json.params.id }}",
+              "type": "string"
+            },
+            {
+              "id": "d5eed868-35b2-4c8c-a33a-53ea78ec95a7",
+              "name": "query",
+              "value": "SELECT * FROM products WHERE id=($1)",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "a67c4fae-0f7d-4991-ae3d-704dc0087d09",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.error}}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "object",
+                      "operation": "exists",
+                      "singleValue": true
+                    },
+                    "id": "5d13d7bd-d58e-49b3-bdef-1c5e6cb505af"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "500"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "ef4c5a63-fd9a-4345-b97e-3487ff2f6d35",
+                    "leftValue": "={{ $json }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "object",
+                      "operation": "empty",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "404"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "0dfd20c1-41b2-455c-b791-9841e3915137",
+                    "leftValue": "={{ $json }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "object",
+                      "operation": "notEmpty",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "200"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        576,
+        -16
+      ],
+      "id": "1e10c8e0-b9cf-4f53-a998-f3235b4a0574",
+      "name": "Switch"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "500",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "404",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "200",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "78d6f66a-6e91-4a46-86e2-a7400e354e13",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7a551d748fa207e13e0ae1da2c45d43afc08dab8d482a7b98f240f900d2956d7"
+  },
+  "id": "sI8QIwcsOBQ9JaKs",
+  "tags": []
+}

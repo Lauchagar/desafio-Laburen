@@ -1,0 +1,191 @@
+{
+  "name": "GET products",
+  "nodes": [
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        944,
+        80
+      ],
+      "id": "3731ea46-5173-4ff6-a090-a687e3c67d1b",
+      "name": "200"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \n  \"error\": \"Internal Server Error\", \n  \"message\": \"{{$json.message}}\",\n  \"details\": \"{{ $json.error.description }}\"\n}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        944,
+        -64
+      ],
+      "id": "ac46a2cb-8aab-4fce-8a4e-1cbd21d0e5f6",
+      "name": "500"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $json.query }}",
+        "options": {
+          "queryReplacement": "={{ $json.params }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        576,
+        0
+      ],
+      "id": "27f27d0e-52d9-4c90-9eab-98ec1d29b428",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "siU1mYKXxXHAYkHK",
+          "name": "Postgres account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const nombreQuery = $input.first().json.query.nombre;\nconst categoriaQuery = $input.first().json.query.categoria;\nconst descripcionQuery = $input.first().json.query.descripcion; \n\nlet where = [];\nlet params = [];\nlet paramIndex = 1;\n\n// Filtro de Nombre\nif (nombreQuery) {\n    where.push(`unaccent(tipo_prenda) ILIKE unaccent($${paramIndex})`);\n    params.push(`%${nombreQuery}%`);\n    paramIndex++;\n}\n\n// Filtro de Descripcion\nif (descripcionQuery) {\n    where.push(`unaccent(descripcion) ILIKE unaccent($${paramIndex})`);\n    params.push(`%${descripcionQuery}%`);\n    paramIndex++;\n}\n\n// Filtro de Categoria\nif (categoriaQuery) {\n    where.push(`unaccent(categoria) ILIKE unaccent($${paramIndex})`);\n    params.push(`%${categoriaQuery}%`);\n    paramIndex++;\n}\n\n// Consulta SQL final\nlet sql = 'SELECT * FROM products'; \n\nif (where.length > 0) {\n    // Si hay mas de un filtro, se unen con  AND \n    sql += ' WHERE ' + where.join(' AND ');\n}\n\nreturn { \n    query: sql, \n    params: params \n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        384,
+        0
+      ],
+      "id": "dd733409-0013-4d25-a30e-c467e5eda61c",
+      "name": "query y params"
+    },
+    {
+      "parameters": {
+        "path": "products",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        192,
+        0
+      ],
+      "id": "d9bbbddf-8bf8-47ff-9700-b43717496ab5",
+      "name": "products",
+      "webhookId": "8262abd3-350f-43b2-b37c-3f26974ec498"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "df9beaca-0afe-4aa3-bbf3-e52a603ff66a",
+              "leftValue": "={{ $json.error}}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        736,
+        0
+      ],
+      "id": "8f66766f-b796-4547-8707-ded74cbd4dff",
+      "name": "hayError?"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "hayError?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "query y params": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "products": {
+      "main": [
+        [
+          {
+            "node": "query y params",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "hayError?": {
+      "main": [
+        [
+          {
+            "node": "500",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "200",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "36c5e959-911e-4a7e-af67-d97c85795983",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7a551d748fa207e13e0ae1da2c45d43afc08dab8d482a7b98f240f900d2956d7"
+  },
+  "id": "xMm7PpYbC6aNNfnf",
+  "tags": []
+}

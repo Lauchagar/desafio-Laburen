@@ -1,0 +1,605 @@
+{
+  "name": "PATCH carts/:id",
+  "nodes": [
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\"message\": \"Carrito actualizado correctamente.\"}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        320
+      ],
+      "id": "94d4cf6a-0cc9-4ad7-aa26-33888e0c0fea",
+      "name": "200"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"error\": \"Producto no encontrado para id {{ $('Loop Over Items').item.json.product_id }}\"} ",
+        "options": {
+          "responseCode": 404
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        448
+      ],
+      "id": "866dcfb7-ff1d-4484-ac53-9d0d2080e24e",
+      "name": "404"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "items",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        160,
+        464
+      ],
+      "id": "2884c32e-b929-4d1f-80d3-f6057eb19e5f",
+      "name": "Split Items"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT product_id, qty FROM cart_items WHERE cart_id = {{ $('items1').item.json.cart_id }} AND product_id = {{ $json.product_id }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        528,
+        624
+      ],
+      "id": "09593155-b23f-446d-9a0f-66226314e6bb",
+      "name": "Get Current Qty",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "siU1mYKXxXHAYkHK",
+          "name": "Postgres account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const queryResult = $json;\nconst inputQty = $('Split Items').item.json.qty;\nconst productId = $('Split Items').item.json.product_id;\nconst currentQty = queryResult.qty || 0; \n\nif (currentQty == 0) {\n    throw new Error('Producto ID ' + productId + ' no encontrado en el carrito.');\n}\nconst finalQty = currentQty + inputQty;\n\nreturn {\n    product_id: productId,\n    delta_qty: inputQty,\n    current_qty: currentQty,\n    final_qty: finalQty\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        688,
+        624
+      ],
+      "id": "f9153414-671f-48f7-b739-2e9ae07b78dd",
+      "name": "Calcular Final Qty",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE products\nSET cantidad_disponible = cantidad_disponible - {{ $json.delta_qty }}\nWHERE id = {{ $json.product_id }}\n  AND (cantidad_disponible >= {{ $json.delta_qty }} OR {{ $json.delta_qty }} < 0)\nRETURNING id;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        960,
+        640
+      ],
+      "id": "aaeea33d-dc23-4d2c-92ac-8c812f8c32b5",
+      "name": "Update Stock Atomic",
+      "credentials": {
+        "postgres": {
+          "id": "siU1mYKXxXHAYkHK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "ROLLBACK;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1296,
+        448
+      ],
+      "id": "8e311456-1a0c-484f-9ed7-98eea104a5a9",
+      "name": "ROLLBACK",
+      "credentials": {
+        "postgres": {
+          "id": "siU1mYKXxXHAYkHK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO cart_items (cart_id, product_id, qty)\nVALUES ({{ $('Webhook').item.json.params.id }}, {{ $('Calcular Final Qty').item.json.product_id }}, {{ $('Calcular Final Qty').item.json.final_qty }})\nON CONFLICT (cart_id, product_id) \nDO UPDATE SET qty = EXCLUDED.qty;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1568,
+        656
+      ],
+      "id": "6ffcb5f4-743b-4265-a0bd-def21b0ef2b1",
+      "name": "UPSERT Item",
+      "credentials": {
+        "postgres": {
+          "id": "siU1mYKXxXHAYkHK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DELETE FROM cart_items \nWHERE cart_id =  {{ $('Webhook').item.json.params.id }}\n  AND product_id = {{ $('Calcular Final Qty').item.json.product_id }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1600,
+        832
+      ],
+      "id": "f8f7fa6f-0ba4-4a65-b62e-8876b64e2440",
+      "name": "DELETE Item",
+      "credentials": {
+        "postgres": {
+          "id": "siU1mYKXxXHAYkHK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {}
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        592,
+        320
+      ],
+      "id": "1761fe1d-e7e8-4d06-be4e-a43dee8b8ed3",
+      "name": "Aggregate Loop"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE carts SET updated_at = NOW() WHERE id = {{ $('Webhook').item.json.params.id }};",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        752,
+        320
+      ],
+      "id": "119d96c3-aaa9-4706-85a6-6bfe6309375a",
+      "name": "Update Cart Date",
+      "credentials": {
+        "postgres": {
+          "id": "siU1mYKXxXHAYkHK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "COMMIT;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        928,
+        320
+      ],
+      "id": "1edf0ae1-c88f-4bc9-b813-2678350bdd34",
+      "name": "COMMIT",
+      "credentials": {
+        "postgres": {
+          "id": "siU1mYKXxXHAYkHK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "BEGIN;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -224,
+        464
+      ],
+      "id": "9a97bd1a-83eb-453d-91cc-6671a80e0023",
+      "name": "BEGIN1",
+      "credentials": {
+        "postgres": {
+          "id": "siU1mYKXxXHAYkHK",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7e95000b-2292-42af-b828-7b9f4a31519e",
+              "name": "items",
+              "value": "={{ $('Webhook').item.json.body.items }}",
+              "type": "array"
+            },
+            {
+              "id": "1a03c909-0aec-4cbb-acf8-faa6ba691165",
+              "name": "user_id",
+              "value": "={{ $('Webhook').item.json.body.user_id }}",
+              "type": "string"
+            },
+            {
+              "id": "84deae2c-3d93-478e-82be-a211663302d6",
+              "name": "cart_id",
+              "value": "={{ $('Webhook').item.json.params.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -32,
+        464
+      ],
+      "id": "9c361000-0480-4830-9403-80da67f0d1c5",
+      "name": "items1"
+    },
+    {
+      "parameters": {
+        "httpMethod": "PATCH",
+        "path": "carts/:id",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -416,
+        464
+      ],
+      "id": "adce3bdd-f2d7-4f11-a0cf-0711d0661e4b",
+      "name": "Webhook",
+      "webhookId": "39094a6a-f22c-42cc-a1ad-f78e64d81984"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        352,
+        464
+      ],
+      "id": "d55899f9-9d96-429b-b987-236dad179ece",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "0343e4c3-5114-4ce5-8e5c-b89a786d835f",
+              "leftValue": "={{ $('Calcular Final Qty').item.json.final_qty }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1344,
+        672
+      ],
+      "id": "55183a6e-710c-460d-9084-87a51c0ebf0b",
+      "name": "Final Qty > 0?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "0343e4c3-5114-4ce5-8e5c-b89a786d835f",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "number",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1120,
+        640
+      ],
+      "id": "81e3c891-bbfd-406e-8241-6fe882867082",
+      "name": "Stock Updated?"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Split Items": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Current Qty": {
+      "main": [
+        [
+          {
+            "node": "Calcular Final Qty",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calcular Final Qty": {
+      "main": [
+        [
+          {
+            "node": "Update Stock Atomic",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ROLLBACK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Stock Atomic": {
+      "main": [
+        [
+          {
+            "node": "Stock Updated?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ROLLBACK": {
+      "main": [
+        [
+          {
+            "node": "404",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "UPSERT Item": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DELETE Item": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Loop": {
+      "main": [
+        [
+          {
+            "node": "Update Cart Date",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Cart Date": {
+      "main": [
+        [
+          {
+            "node": "COMMIT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "COMMIT": {
+      "main": [
+        [
+          {
+            "node": "200",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BEGIN1": {
+      "main": [
+        [
+          {
+            "node": "items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "items1": {
+      "main": [
+        [
+          {
+            "node": "Split Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "BEGIN1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Loop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Current Qty",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Final Qty > 0?": {
+      "main": [
+        [
+          {
+            "node": "UPSERT Item",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "DELETE Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stock Updated?": {
+      "main": [
+        [
+          {
+            "node": "ROLLBACK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Final Qty > 0?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "e4679276-dc74-4ca1-9214-37b61e3d991d",
+  "meta": {
+    "instanceId": "7a551d748fa207e13e0ae1da2c45d43afc08dab8d482a7b98f240f900d2956d7"
+  },
+  "id": "DCGImSioDfx5pGJm",
+  "tags": []
+}
