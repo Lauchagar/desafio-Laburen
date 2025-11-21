@@ -15,6 +15,7 @@ Este repositorio contiene la orquestación completa de un **Agente de IA** capaz
 | **PostgreSQL**  | Base de Datos | Persistencia de productos y ventas |
 | **WhatsApp**  | Mensajería | Cloud API vía Chatwoot/Meta |
 
+**Whatsapp**: +5492202544219
 ---
 
 ## Arquitectura del Workflow
